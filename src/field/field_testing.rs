@@ -5,7 +5,7 @@ macro_rules! test_field_arithmetic {
             use std::vec::Vec;
 
             use num::bigint::BigUint;
-            use plonky2_field::types::{Field, Sample};
+            use plonky2::field::types::{Field, Sample};
             use rand::rngs::OsRng;
             use rand::Rng;
 
@@ -28,7 +28,9 @@ macro_rules! test_field_arithmetic {
                 let max_power = 8.min(<$field>::TWO_ADICITY);
                 for n_power in 0..max_power {
                     let root = <$field>::primitive_root_of_unity(n_power);
+                    println!("root: {}", root);
                     let order = <$field>::generator_order(root);
+                    println!("order: {}", order);
                     assert_eq!(order, 1 << n_power, "2^{}'th primitive root", n_power);
                 }
             }
@@ -73,8 +75,8 @@ macro_rules! test_field_arithmetic {
                 let mut rng = OsRng;
 
                 let base = F::rand();
-                let pow = BigUint::from(rng.gen::<u64>());
-                let cycles = rng.gen::<u32>();
+                let pow = BigUint::from(rng.r#gen::<u64>());
+                let cycles = rng.r#gen::<u32>();
                 let mul_group_order = F::order() - 1u32;
                 let big_pow = &pow + &mul_group_order * cycles;
                 let big_pow_wrong = &pow + &mul_group_order * cycles + 1u32;

@@ -1,10 +1,9 @@
-use plonky2_field::types::Field;
+use plonky2::field::types::{Field, PrimeField};
 use serde::{Deserialize, Serialize};
 
 use crate::curve::curve_types::{AffinePoint, Curve, ProjectivePoint};
 use crate::field::ed25519_base::Ed25519Base;
 use crate::field::ed25519_scalar::Ed25519Scalar;
-use plonky2_field::types::PrimeField;
 
 #[derive(Debug, Copy, Clone, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct Ed25519;
@@ -20,7 +19,7 @@ impl Curve for Ed25519 {
     type BaseField = Ed25519Base;
     type ScalarField = Ed25519Scalar;
 
-    const A: Ed25519Base = Ed25519Base::ONE;
+    const A: Ed25519Base = Ed25519Base::NEG_ONE;
     const D: Ed25519Base = Ed25519Base([
         0x75eb4dca135978a3,
         0x00700a4d4141d8ab,
@@ -74,7 +73,7 @@ pub(crate) fn mul_naive(
 #[cfg(test)]
 mod tests {
     use num::BigUint;
-    use plonky2_field::types::Field;
+    use plonky2::field::types::Field;
 
     use crate::curve::curve_types::{AffinePoint, Curve};
     use crate::curve::ed25519::mul_naive;

@@ -1,7 +1,7 @@
 use std::ops::Add;
 
-use plonky2_field::ops::Square;
-use plonky2_field::types::Field;
+use plonky2::field::ops::Square;
+use plonky2::field::types::Field;
 
 use crate::curve::curve_types::{AffinePoint, Curve, ProjectivePoint};
 
@@ -105,7 +105,7 @@ impl<C: Curve> Add<AffinePoint<C>> for ProjectivePoint<C> {
         let r = vv * x1;
         let a = uu * z1 - vvv - r.double();
         let x3 = v * a;
-        let y3 = u * (r - a) - vvv * y1;
+        let y3 = u * (r + a) - vvv * y1;
         let z3 = vvv * z1;
         ProjectivePoint::nonzero(x3, y3, z3)
     }

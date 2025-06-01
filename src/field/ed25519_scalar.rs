@@ -9,12 +9,13 @@ use num::bigint::BigUint;
 use num::{Integer, One};
 use serde::{Deserialize, Serialize};
 
-use plonky2_field::types::{Field, PrimeField, Sample};
+use plonky2::field::types::{Field, PrimeField, Sample};
 
 /// The order of the Ed25519 elliptic curve is
-/// ```ignore
-/// P = 2^252 + 0x14def9dea2f79cd65812631a5cf5d3ed
-/// ```
+/// P = 2^252 + 27742317777372353535851937790883648493
+///   = 2^252 + 0x14def9dea2f79cd65812631a5cf5d3ed
+///   = 0x1000000000000000000000000000000014def9dea2f79cd65812631a5cf5d3ed
+
 #[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct Ed25519Scalar(pub [u64; 4]);
 
@@ -79,27 +80,32 @@ impl Field for Ed25519Scalar {
     const ONE: Self = Self([1, 0, 0, 0]);
     const TWO: Self = Self([2, 0, 0, 0]);
     const NEG_ONE: Self = Self([
-        0x5812631a5cf5d3ee,
+        0x5812631a5cf5d3ec,
         0x14def9dea2f79cd6,
         0x0000000000000000,
         0x1000000000000000,
     ]);
 
-    const TWO_ADICITY: usize = 1;
+    const TWO_ADICITY: usize = 2;
     const CHARACTERISTIC_TWO_ADICITY: usize = Self::TWO_ADICITY;
 
-    // Sage: `g = GF(p).multiplicative_generator()`
-    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([2, 0, 0, 0]);
+    // (l‑1) = 2² · q   with q odd → v₂ = 2 
+    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([7, 0, 0, 0]);
 
-    // Sage: `g_2 = g^((p - 1) / 2)`
-    const POWER_OF_TWO_GENERATOR: Self = Self::NEG_ONE;
+    // √‑1  (order‑4)  = 2^((ℓ‑1)/4) mod ℓ
+    const POWER_OF_TWO_GENERATOR: Self = Self([
+        0xbe8775dfebbe07d4,
+        0x0ef0565342ce83fe,
+        0x7d3d6d60abc1c27a,
+        0x094a7310e07981e7,
+    ]);
 
-    const BITS: usize = 256;
+    const BITS: usize = 256; 
 
     fn order() -> BigUint {
         BigUint::from_slice(&[
-            0x5cf5d3ed, 0x5812631a, 0xa2f79cd6, 0x14def9de, 0x00000000, 0x00000000, 0x00000000,
-            0x10000000,
+            0x5CF5D3ED, 0x5812631A, 0xA2F79CD6, 0x14DEF9DE,
+            0x00000000, 0x00000000, 0x00000000, 0x10000000,
         ])
     }
     fn characteristic() -> BigUint {
@@ -139,6 +145,19 @@ impl Field for Ed25519Scalar {
     #[inline]
     fn from_noncanonical_u96(n: (u64, u32)) -> Self {
         Self([n.0, n.1 as u64, 0, 0])
+    }
+
+    fn from_noncanonical_i64(n: i64) -> Self {
+        let f = Self::from_canonical_u64(n.unsigned_abs());
+        if n < 0 {
+            -f
+        } else {
+            f
+        }
+    }
+
+    fn from_noncanonical_u64(n: u64) -> Self {
+        Self::from_canonical_u64(n)
     }
 }
 

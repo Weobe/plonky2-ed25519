@@ -5,10 +5,12 @@ use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::iop::witness::{PartitionWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2_ecdsa::gadgets::biguint::GeneratedValuesBigUint;
-use plonky2_field::extension::Extendable;
-use plonky2_field::types::{Field, PrimeField, Sample};
-use plonky2_sha512::circuit::biguint_to_bits_target;
+use plonky2::plonk::circuit_data::CommonCircuitData;
+use plonky2::util::serialization::{Buffer, IoError, IoResult};
+use crate::gadgets::biguint::GeneratedValuesBigUint;
+use plonky2::field::extension::Extendable;
+use plonky2::field::types::{Field, PrimeField, Sample};
+use crate::sha512::circuit::biguint_to_bits_target;
 
 use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar};
 use crate::curve::eddsa::point_decompress;
@@ -110,19 +112,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
         AffinePointTarget { x, y }
     }
 
-    // y^2 = a + x^2 + b*x^2*y^2
     fn curve_assert_valid<C: Curve>(&mut self, p: &AffinePointTarget<C>) {
-        let a = self.constant_nonnative(C::A);
-        let d = self.constant_nonnative(C::D);
-
-        let y_squared = self.mul_nonnative(&p.y, &p.y);
-        let x_squared = self.mul_nonnative(&p.x, &p.x);
-        let x_squared_y_squared = self.mul_nonnative(&x_squared, &y_squared);
-        let d_x_squared_y_squared = self.mul_nonnative(&d, &x_squared_y_squared);
-        let a_plus_x_squared = self.add_nonnative(&a, &x_squared);
-        let rhs = self.add_nonnative(&a_plus_x_squared, &d_x_squared_y_squared);
-
-        self.connect_nonnative(&y_squared, &rhs);
+        let one = self.constant_nonnative(C::BaseField::ONE);
+        let d   = self.constant_nonnative(C::D);
+    
+        let x2 = self.mul_nonnative(&p.x, &p.x);           // x²
+        let y2 = self.mul_nonnative(&p.y, &p.y);           // y²
+        let x2y2 = self.mul_nonnative(&x2, &y2);           // x²y²
+        let dx2y2 = self.mul_nonnative(&d, &x2y2);         // d x²y²
+    
+        // RHS = 1 + x² + d x²y²
+        let tmp = self.add_nonnative(&one, &x2);
+        let rhs = self.add_nonnative(&tmp, &dx2y2);
+    
+        self.connect_nonnative(&y2, &rhs);
     }
 
     fn curve_neg<C: Curve>(&mut self, p: &AffinePointTarget<C>) -> AffinePointTarget<C> {
@@ -204,7 +207,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
         let x1y2_add_y1x2 = self.add_nonnative(&x1y2, &y1x2);
         let y1y2_add_x1x2 = self.add_nonnative(&y1y2, &x1x2);
 
-        let x1x2y1y2 = self.mul_nonnative(&x1y2, &y1x2);
+        let x1x2y1y2 = self.mul_nonnative(&x1x2, &y1y2);
         let dx1x2y1y2 = self.mul_nonnative(&d, &x1x2y1y2);
         let neg_dx1x2y1y2 = self.neg_nonnative(&dx1x2y1y2);
         let one_add_dx1x2y1y2 = self.add_nonnative(&one, &dx1x2y1y2);
@@ -328,14 +331,26 @@ struct CurvePointDecompressionGenerator<F: RichField + Extendable<D>, const D: u
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize, C: Curve> SimpleGenerator<F>
+impl<F: RichField + Extendable<D>, const D: usize, C: Curve> SimpleGenerator<F, D>
     for CurvePointDecompressionGenerator<F, D, C>
 {
+    fn id(&self) -> String {
+        "CurvePointDecompressionGenerator".to_string()
+    }
+
+    fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
+        Ok(())
+    }
+
+    fn deserialize(src: &mut Buffer<'_>, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
+        todo!()
+    }
+
     fn dependencies(&self) -> Vec<Target> {
         self.pv.iter().cloned().map(|l| l.target).collect()
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> Result<(), anyhow::Error> {
         let mut bits = Vec::new();
         for i in 0..256 {
             bits.push(witness.get_bool_target(self.pv[i].clone()));
@@ -348,10 +363,12 @@ impl<F: RichField + Extendable<D>, const D: usize, C: Curve> SimpleGenerator<F>
                 }
             }
         }
-        let point = point_decompress(s.as_slice());
+        let point = point_decompress(s.as_slice()).expect("compressed point was not on the curve");
 
         out_buffer.set_biguint_target(&self.p.x.value, &point.x.to_canonical_biguint());
         out_buffer.set_biguint_target(&self.p.y.value, &point.y.to_canonical_biguint());
+
+        Ok(())
     }
 }
 
@@ -364,7 +381,7 @@ mod tests {
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2_field::types::{Field, Sample};
+    use plonky2::field::types::{Field, Sample};
 
     use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar};
     use crate::curve::ed25519::Ed25519;

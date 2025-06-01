@@ -6,9 +6,9 @@ use plonky2::hash::keccak::KeccakHash;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{GenericHashOut, Hasher};
-use plonky2_ecdsa::gadgets::biguint::BigUintTarget;
-use plonky2_field::extension::Extendable;
-use plonky2_field::types::Field;
+use crate::gadgets::biguint::BigUintTarget;
+use plonky2::field::extension::Extendable;
+use plonky2::field::types::Field;
 use plonky2_u32::gadgets::arithmetic_u32::{CircuitBuilderU32, U32Target};
 
 use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar};
@@ -98,11 +98,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
 
         let selected_x_limbs: Vec<_> = x_limbs
             .iter()
-            .map(|limbs| U32Target(self.random_access(access_index, limbs.clone())))
+            .map(|limbs| U32Target::new_unsafe(self.random_access(access_index, limbs.clone())))
             .collect();
         let selected_y_limbs: Vec<_> = y_limbs
             .iter()
-            .map(|limbs| U32Target(self.random_access(access_index, limbs.clone())))
+            .map(|limbs| U32Target::new_unsafe(self.random_access(access_index, limbs.clone())))
             .collect();
 
         let x = NonNativeTarget {
@@ -187,13 +187,12 @@ mod tests {
     use std::ops::Neg;
 
     use anyhow::Result;
-    use log::{Level, LevelFilter};
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
-    use plonky2_field::types::{Field, Sample};
+    use plonky2::field::types::{Field, Sample};
     use rand::Rng;
 
     use crate::curve::curve_types::{Curve, CurveScalar};
@@ -224,7 +223,7 @@ mod tests {
             .collect();
 
         let mut rng = rand::thread_rng();
-        let access_index = rng.gen::<usize>() % num_points;
+        let access_index = rng.r#gen::<usize>() % num_points;
 
         let access_index_target = builder.constant(F::from_canonical_usize(access_index));
         let selected = builder.random_access_curve_points(access_index_target, points.clone());
@@ -240,11 +239,6 @@ mod tests {
     #[test]
     #[ignore]
     fn test_curve_windowed_mul() -> Result<()> {
-        // Initialize logging
-        let mut builder = env_logger::Builder::from_default_env();
-        builder.format_timestamp(None);
-        builder.filter_level(LevelFilter::Info);
-        builder.try_init()?;
 
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
@@ -271,9 +265,7 @@ mod tests {
         builder.connect_affine_point(&neg_five_g_expected, &neg_five_g_actual);
 
         let data = builder.build::<C>();
-        let timing = TimingTree::new("prove curve_windowed_mul", Level::Info);
         let proof = data.prove(pw).unwrap();
-        timing.print();
 
         data.verify(proof)
     }

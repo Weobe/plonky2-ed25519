@@ -1,8 +1,8 @@
+use std::vec::Vec;
 use core::fmt::{self, Debug, Display, Formatter};
 use core::hash::{Hash, Hasher};
 use core::iter::{Product, Sum};
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use std::vec::Vec;
 
 use itertools::Itertools;
 use num::bigint::BigUint;
@@ -11,13 +11,14 @@ use serde::{Deserialize, Serialize};
 
 use plonky2::field::types::{Field, PrimeField, Sample};
 
-
-/// The base field of the curve25519 elliptic curve.
+/// The base field of the secp256k1 elliptic curve.
 ///
 /// Its order is
-/// P = 2**255 - 19
+/// ```ignore
+/// P = 2**256 - 2**32 - 2**9 - 2**8 - 2**7 - 2**6 - 2**4 - 1
+/// ```
 #[derive(Copy, Clone, Serialize, Deserialize)]
-pub struct Ed25519Base(pub [u64; 4]);
+pub struct Secp256K1Base(pub [u64; 4]);
 
 fn biguint_from_array(arr: [u64; 4]) -> BigUint {
     BigUint::from_slice(&[
@@ -32,39 +33,39 @@ fn biguint_from_array(arr: [u64; 4]) -> BigUint {
     ])
 }
 
-impl Default for Ed25519Base {
+impl Default for Secp256K1Base {
     fn default() -> Self {
         Self::ZERO
     }
 }
 
-impl PartialEq for Ed25519Base {
+impl PartialEq for Secp256K1Base {
     fn eq(&self, other: &Self) -> bool {
         self.to_canonical_biguint() == other.to_canonical_biguint()
     }
 }
 
-impl Eq for Ed25519Base {}
+impl Eq for Secp256K1Base {}
 
-impl Hash for Ed25519Base {
+impl Hash for Secp256K1Base {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.to_canonical_biguint().hash(state)
     }
 }
 
-impl Display for Ed25519Base {
+impl Display for Secp256K1Base {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.to_canonical_biguint(), f)
     }
 }
 
-impl Debug for Ed25519Base {
+impl Debug for Secp256K1Base {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Debug::fmt(&self.to_canonical_biguint(), f)
     }
 }
 
-impl Sample for Ed25519Base {
+impl Sample for Secp256K1Base {
     #[inline]
     fn sample<R>(rng: &mut R) -> Self
     where
@@ -75,38 +76,36 @@ impl Sample for Ed25519Base {
     }
 }
 
-impl Field for Ed25519Base {
+impl Field for Secp256K1Base {
     const ZERO: Self = Self([0; 4]);
     const ONE: Self = Self([1, 0, 0, 0]);
     const TWO: Self = Self([2, 0, 0, 0]);
     const NEG_ONE: Self = Self([
-        0xFFFFFFFFFFFFFFEC,
+        0xFFFFFFFEFFFFFC2E,
         0xFFFFFFFFFFFFFFFF,
         0xFFFFFFFFFFFFFFFF,
-        0x7FFFFFFFFFFFFFFF,
+        0xFFFFFFFFFFFFFFFF,
     ]);
 
-    const TWO_ADICITY: usize = 2;
+    const TWO_ADICITY: usize = 1;
     const CHARACTERISTIC_TWO_ADICITY: usize = Self::TWO_ADICITY;
 
     // Sage: `g = GF(p).multiplicative_generator()`
-    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([2, 0, 0, 0]);
+    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([5, 0, 0, 0]);
 
-    
     // Sage: `g_2 = g^((p - 1) / 4)`  → element of exact order 4 (√‑1)
     const POWER_OF_TWO_GENERATOR: Self = Self([
-        0xC4EE1B274A0EA0B0,
-        0x2F431806AD2FE478,
-        0x2B4D00993DFBD7A7,
-        0x2B8324804FC1DF0B,
+        0x000000000000000A,
+        0x1FBD7A69296AE0D7,
+        0x0B7CF4F9F2C5F3C7,
+        0x216936D3CD6E53FE,
     ]);
-
     const BITS: usize = 256;
 
     fn order() -> BigUint {
         BigUint::from_slice(&[
-            0xFFFFFFED, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
-            0x7FFFFFFF,
+            0xFFFFFC2F, 0xFFFFFFFE, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
+            0xFFFFFFFF,
         ])
     }
     fn characteristic() -> BigUint {
@@ -148,22 +147,21 @@ impl Field for Ed25519Base {
         Self([n.0, n.1 as u64, 0, 0])
     }
 
-    #[inline]
-    fn from_noncanonical_u64(n: u64) -> Self {
-        Self([n, 0, 0, 0])
+    fn from_noncanonical_i64(n: i64) -> Self {
+        let f = Self::from_canonical_u64(n.unsigned_abs());
+        if n < 0 {
+            -f
+        } else {
+            f
+        }
     }
 
-    #[inline]
-    fn from_noncanonical_i64(n: i64) -> Self {
-        if n >= 0 {
-            Self::from_noncanonical_u64(n as u64)
-        } else {
-            -Self::from_noncanonical_u64((-n) as u64)
-        }
+    fn from_noncanonical_u64(n: u64) -> Self {
+        Self::from_canonical_u64(n)
     }
 }
 
-impl PrimeField for Ed25519Base {
+impl PrimeField for Secp256K1Base {
     fn to_canonical_biguint(&self) -> BigUint {
         let mut result = biguint_from_array(self.0);
         if result >= Self::order() {
@@ -173,7 +171,7 @@ impl PrimeField for Ed25519Base {
     }
 }
 
-impl Neg for Ed25519Base {
+impl Neg for Secp256K1Base {
     type Output = Self;
 
     #[inline]
@@ -186,7 +184,7 @@ impl Neg for Ed25519Base {
     }
 }
 
-impl Add for Ed25519Base {
+impl Add for Secp256K1Base {
     type Output = Self;
 
     #[inline]
@@ -199,20 +197,20 @@ impl Add for Ed25519Base {
     }
 }
 
-impl AddAssign for Ed25519Base {
+impl AddAssign for Secp256K1Base {
     #[inline]
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
     }
 }
 
-impl Sum for Ed25519Base {
+impl Sum for Secp256K1Base {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(Self::ZERO, |acc, x| acc + x)
     }
 }
 
-impl Sub for Ed25519Base {
+impl Sub for Secp256K1Base {
     type Output = Self;
 
     #[inline]
@@ -222,14 +220,14 @@ impl Sub for Ed25519Base {
     }
 }
 
-impl SubAssign for Ed25519Base {
+impl SubAssign for Secp256K1Base {
     #[inline]
     fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
     }
 }
 
-impl Mul for Ed25519Base {
+impl Mul for Secp256K1Base {
     type Output = Self;
 
     #[inline]
@@ -240,21 +238,21 @@ impl Mul for Ed25519Base {
     }
 }
 
-impl MulAssign for Ed25519Base {
+impl MulAssign for Secp256K1Base {
     #[inline]
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
     }
 }
 
-impl Product for Ed25519Base {
+impl Product for Secp256K1Base {
     #[inline]
     fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.reduce(|acc, x| acc * x).unwrap_or(Self::ONE)
     }
 }
 
-impl Div for Ed25519Base {
+impl Div for Secp256K1Base {
     type Output = Self;
 
     #[allow(clippy::suspicious_arithmetic_impl)]
@@ -263,7 +261,7 @@ impl Div for Ed25519Base {
     }
 }
 
-impl DivAssign for Ed25519Base {
+impl DivAssign for Secp256K1Base {
     fn div_assign(&mut self, rhs: Self) {
         *self = *self / rhs;
     }
@@ -273,5 +271,5 @@ impl DivAssign for Ed25519Base {
 mod tests {
     use crate::test_field_arithmetic;
 
-    test_field_arithmetic!(crate::field::ed25519_base::Ed25519Base);
+    test_field_arithmetic!(crate::field::secp256k1_base::Secp256K1Base);
 }

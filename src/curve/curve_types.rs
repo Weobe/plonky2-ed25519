@@ -2,8 +2,8 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::ops::Neg;
 
-use plonky2_field::ops::Square;
-use plonky2_field::types::{Field, PrimeField};
+use plonky2::field::ops::Square;
+use plonky2::field::types::{Field, PrimeField};
 use serde::{Deserialize, Serialize};
 
 // To avoid implementation conflicts from associated types,
@@ -60,7 +60,12 @@ impl<C: Curve> AffinePoint<C> {
 
     pub fn is_valid(&self) -> bool {
         let Self { x, y, zero } = *self;
-        zero || y.square() == x.square() + C::D * x.square() * y.square() + C::A
+        if zero {
+            return true;
+        }
+        // a·x² + y²  ?=  1 + d·x²y²
+        C::A * x.square() + y.square()
+            == C::BaseField::ONE + C::D * x.square() * y.square()
     }
 
     pub fn to_projective(&self) -> ProjectivePoint<C> {
