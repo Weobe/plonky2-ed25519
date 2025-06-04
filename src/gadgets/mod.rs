@@ -1,4 +1,4 @@
-//pub mod eddsa;
+pub mod eddsa;
 pub mod biguint;
 pub mod nonnative;
 pub mod curve;
