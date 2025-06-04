@@ -2,7 +2,7 @@
 macro_rules! test_field_arithmetic {
     ($field:ty) => {
         mod field_arithmetic {
-            use std::vec::Vec;
+            use alloc::vec::Vec;
 
             use num::bigint::BigUint;
             use plonky2::field::types::{Field, Sample};
