@@ -79,7 +79,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSplit<F, D>
             .map(|chunk| {
                 let mut combined_chunk = self.zero_u32();
                 for i in (0..8).rev() {
-                    let (low, _high) = self.mul_add_u32(combined_chunk, base, U32Target::new_unsafe(chunk[i]));
+                    let (low, _high) = self.mul_add_u32(combined_chunk, base, U32Target(chunk[i]));
                     combined_chunk = low;
                 }
                 combined_chunk

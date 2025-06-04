@@ -98,11 +98,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderWindowedMul<F, 
 
         let selected_x_limbs: Vec<_> = x_limbs
             .iter()
-            .map(|limbs| U32Target::new_unsafe(self.random_access(access_index, limbs.clone())))
+            .map(|limbs| U32Target(self.random_access(access_index, limbs.clone())))
             .collect();
         let selected_y_limbs: Vec<_> = y_limbs
             .iter()
-            .map(|limbs| U32Target::new_unsafe(self.random_access(access_index, limbs.clone())))
+            .map(|limbs| U32Target(self.random_access(access_index, limbs.clone())))
             .collect();
 
         let x = NonNativeTarget {

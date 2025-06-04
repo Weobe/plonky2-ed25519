@@ -4,15 +4,15 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-plonky2 = "1.1.0"
 num = "0.4"
 itertools = "0.10"
+plonky2 = { git = "https://github.com/0xPolygonZero/plonky2" }
 serde = { version = "1.0", features = ["derive"] }
-rand = "0.8"
 sha2 = "0.10.9"
 ed25519-dalek = { version = "1.0", features = ["rand"] }
-rand_core      = "0.5"     # gives 
-plonky2_u32 = { git = "https://github.com/dgulotta/plonky2-u32.git" }
 num-bigint = "0.4.6"
 anyhow = "1.0.97"
 plonky2_util = "1.0.0"
+rand = "0.8"
+rand_core = "0.5"
+plonky2_u32 = { git = "https://github.com/ax0/plonky2-u32" }

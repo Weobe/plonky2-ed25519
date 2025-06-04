@@ -258,8 +258,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
             _phantom: PhantomData,
         });
 
-        range_check_u32_circuit(self, &sum.value.limbs);
-        range_check_u32_circuit(self, &[overflow]);
+        range_check_u32_circuit(self, sum.value.limbs.clone());
+        range_check_u32_circuit(self, vec![overflow]);
 
         let sum_expected = summands
             .iter()
@@ -299,7 +299,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
             _phantom: PhantomData,
         });
 
-        range_check_u32_circuit(self, &diff.value.limbs);
+        range_check_u32_circuit(self, diff.value.limbs.clone());
         self.assert_bool(overflow);
 
         let diff_plus_b = self.add_biguint(&diff.value, &b.value);
@@ -330,8 +330,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
             _phantom: PhantomData,
         });
 
-        range_check_u32_circuit(self, &prod.value.limbs);
-        range_check_u32_circuit(self, &overflow.limbs);
+        range_check_u32_circuit(self, prod.value.limbs.clone());
+        range_check_u32_circuit(self, overflow.limbs.clone());
 
         let prod_expected = self.mul_biguint(&a.value, &b.value);
 
@@ -408,7 +408,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
     }
 
     fn bool_to_nonnative<FF: Field>(&mut self, b: &BoolTarget) -> NonNativeTarget<FF> {
-        let limbs = vec![U32Target::new_unsafe(b.target)];
+        let limbs = vec![U32Target(b.target)];
         let value = BigUintTarget { limbs };
 
         NonNativeTarget {

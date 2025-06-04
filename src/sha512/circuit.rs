@@ -78,7 +78,7 @@ pub fn bits_to_biguint_target<F: RichField + Extendable<D>, const D: usize>(
 
     let mut u32_targets = Vec::new();
     for i in 0..bit_len / 32 {
-        u32_targets.push(U32Target::new_unsafe(
+        u32_targets.push(U32Target(
             builder.le_sum(bits_target[i * 32..(i + 1) * 32].iter().rev()),
         ));
     }
@@ -361,8 +361,8 @@ pub fn make_circuits<F: RichField + Extendable<D>, const D: usize>(
             let u32_1 = builder.le_sum(message[index + 32..index + 64].iter().rev());
 
             let mut u32_targets = Vec::new();
-            u32_targets.push(U32Target::new_unsafe(u32_1));
-            u32_targets.push(U32Target::new_unsafe(u32_0));
+            u32_targets.push(U32Target(u32_1));
+            u32_targets.push(U32Target(u32_0));
             let big_int = BigUintTarget { limbs: u32_targets };
 
             x.push(big_int);

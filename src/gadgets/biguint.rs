@@ -1,5 +1,10 @@
-use std::vec::Vec;
+use alloc::string::String;
+use alloc::vec;
+use alloc::vec::Vec;
+use anyhow::Result;
 use core::marker::PhantomData;
+use plonky2::plonk::circuit_data::CommonCircuitData;
+use plonky2::util::serialization::{IoResult, Read, Write};
 
 use num::{BigUint, Integer, Zero};
 use plonky2::field::extension::Extendable;
@@ -9,7 +14,6 @@ use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::iop::witness::{PartitionWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::circuit_data::CommonCircuitData;
 use plonky2_u32::gadgets::arithmetic_u32::{CircuitBuilderU32, U32Target};
 use plonky2_u32::gadgets::multiple_comparison::list_le_u32_circuit;
 use plonky2_u32::witness::{GeneratedValuesU32, WitnessU32};
@@ -26,6 +30,16 @@ impl BigUintTarget {
 
     pub fn get_limb(&self, i: usize) -> U32Target {
         self.limbs[i]
+    }
+
+    pub fn to_target_vec(&self) -> Vec<Target> {
+        self.limbs.iter().map(|t| t.0).collect()
+    }
+
+    pub fn from_target_vec(ts: &[Target]) -> Self {
+        Self {
+            limbs: ts.iter().map(|t| U32Target(*t)).collect(),
+        }
     }
 }
 
@@ -213,7 +227,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
             limbs: a
                 .limbs
                 .iter()
-                .map(|&l| U32Target::new_unsafe(self.mul(l.0, t)))
+                .map(|&l| U32Target(self.mul(l.0, t)))
                 .collect(),
         }
     }
@@ -274,7 +288,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
 
 pub trait WitnessBigUint<F: PrimeField64>: Witness<F> {
     fn get_biguint_target(&self, target: BigUintTarget) -> BigUint;
-    fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint);
+    fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint) -> Result<()>;
 }
 
 impl<T: Witness<F>, F: PrimeField64> WitnessBigUint<F> for T {
@@ -288,28 +302,32 @@ impl<T: Witness<F>, F: PrimeField64> WitnessBigUint<F> for T {
             })
     }
 
-    fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint) {
+    fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint) -> Result<()> {
         let mut limbs = value.to_u32_digits();
         assert!(target.num_limbs() >= limbs.len());
         limbs.resize(target.num_limbs(), 0);
         for i in 0..target.num_limbs() {
-            self.set_u32_target(target.limbs[i], limbs[i]);
+            self.set_u32_target(target.limbs[i], limbs[i])?;
         }
+
+        Ok(())
     }
 }
 
 pub trait GeneratedValuesBigUint<F: PrimeField> {
-    fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint);
+    fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint) -> Result<()>;
 }
 
 impl<F: PrimeField> GeneratedValuesBigUint<F> for GeneratedValues<F> {
-    fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint) {
+    fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint) -> Result<()> {
         let mut limbs = value.to_u32_digits();
         assert!(target.num_limbs() >= limbs.len());
         limbs.resize(target.num_limbs(), 0);
         for i in 0..target.num_limbs() {
-            self.set_u32_target(target.get_limb(i), limbs[i]);
+            self.set_u32_target(target.get_limb(i), limbs[i])?;
         }
+
+        Ok(())
     }
 }
 
@@ -322,68 +340,12 @@ struct BigUintDivRemGenerator<F: RichField + Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
 }
 
-use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
-
-/// write a `BigUintTarget`
-trait WriteBigUint {
-    fn write_target_biguint(&mut self, x: &BigUintTarget) -> IoResult<()>;
-}
-impl<W: Write> WriteBigUint for W {
-    fn write_target_biguint(&mut self, x: &BigUintTarget) -> IoResult<()> {
-        self.write_usize(x.num_limbs())?;
-        for limb in &x.limbs {
-            self.write_target(limb.0)?;
-        }
-        Ok(())
-    }
-}
-
-/// read a `BigUintTarget`
-trait ReadBigUint {
-    fn read_target_biguint(&mut self) -> IoResult<BigUintTarget>;
-}
-impl ReadBigUint for Buffer<'_> {
-    fn read_target_biguint(&mut self) -> IoResult<BigUintTarget> {
-        let n = self.read_usize()?;
-        let mut limbs = Vec::with_capacity(n);
-        for _ in 0..n {
-            limbs.push(U32Target::new_unsafe(self.read_target()?));
-        }
-        Ok(BigUintTarget { limbs })
-    }
-}
-
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
     for BigUintDivRemGenerator<F, D>
 {
     fn id(&self) -> String {
-        "BigUintDivRemGenerator".to_string()
+        "BigUintDivRemGenerator".into()
     }
-
-    fn serialize(
-        &self,
-        dst: &mut Vec<u8>,
-        _common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<()> {
-        dst.write_target_biguint(&self.a)?;
-        dst.write_target_biguint(&self.b)?;
-        dst.write_target_biguint(&self.div)?;
-        dst.write_target_biguint(&self.rem)
-    }
-
-    fn deserialize(
-        src: &mut Buffer<'_>,
-        _common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<Self> {
-        Ok(Self {
-            a: src.read_target_biguint()?,
-            b: src.read_target_biguint()?,
-            div: src.read_target_biguint()?,
-            rem: src.read_target_biguint()?,
-            _phantom: PhantomData,
-        })
-    }
-
 
     fn dependencies(&self) -> Vec<Target> {
         self.a
@@ -394,14 +356,46 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
             .collect()
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> Result<(), anyhow::Error> {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let a = witness.get_biguint_target(self.a.clone());
         let b = witness.get_biguint_target(self.b.clone());
         let (div, rem) = a.div_rem(&b);
 
-        out_buffer.set_biguint_target(&self.div, &div);
-        out_buffer.set_biguint_target(&self.rem, &rem);
-        Ok(())
+        out_buffer.set_biguint_target(&self.div, &div)?;
+        out_buffer.set_biguint_target(&self.rem, &rem)
+    }
+
+    fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
+        // Serialise each biguint target's limbs.
+        dst.write_target_vec(&self.a.to_target_vec())?;
+        dst.write_target_vec(&self.b.to_target_vec())?;
+        dst.write_target_vec(&self.div.to_target_vec())?;
+        dst.write_target_vec(&self.rem.to_target_vec())
+    }
+
+    fn deserialize(
+        src: &mut plonky2::util::serialization::Buffer,
+        _common_data: &CommonCircuitData<F, D>,
+    ) -> IoResult<Self>
+    where
+        Self: Sized,
+    {
+        let a = BigUintTarget::from_target_vec(&src.read_target_vec()?);
+        let b = BigUintTarget::from_target_vec(&src.read_target_vec()?);
+        let div = BigUintTarget::from_target_vec(&src.read_target_vec()?);
+        let rem = BigUintTarget::from_target_vec(&src.read_target_vec()?);
+
+        Ok(Self {
+            a,
+            b,
+            div,
+            rem,
+            _phantom: PhantomData,
+        })
     }
 }
 
@@ -439,9 +433,9 @@ mod tests {
         let expected_z = builder.add_virtual_biguint_target(expected_z_value.to_u32_digits().len());
         builder.connect_biguint(&z, &expected_z);
 
-        pw.set_biguint_target(&x, &x_value);
-        pw.set_biguint_target(&y, &y_value);
-        pw.set_biguint_target(&expected_z, &expected_z_value);
+        pw.set_biguint_target(&x, &x_value)?;
+        pw.set_biguint_target(&y, &y_value)?;
+        pw.set_biguint_target(&expected_z, &expected_z_value)?;
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
@@ -499,9 +493,9 @@ mod tests {
         let expected_z = builder.add_virtual_biguint_target(expected_z_value.to_u32_digits().len());
         builder.connect_biguint(&z, &expected_z);
 
-        pw.set_biguint_target(&x, &x_value);
-        pw.set_biguint_target(&y, &y_value);
-        pw.set_biguint_target(&expected_z, &expected_z_value);
+        pw.set_biguint_target(&x, &x_value)?;
+        pw.set_biguint_target(&y, &y_value)?;
+        pw.set_biguint_target(&expected_z, &expected_z_value)?;
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
