@@ -1,15 +1,14 @@
+use alloc::vec::Vec;
 use core::fmt::{self, Debug, Display, Formatter};
 use core::hash::{Hash, Hasher};
 use core::iter::{Product, Sum};
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use alloc::vec::Vec;
 use itertools::Itertools;
 use num::bigint::BigUint;
 use num::{Integer, One};
 use serde::{Deserialize, Serialize};
 
 use plonky2::field::types::{Field, PrimeField, Sample};
-
 
 /// The base field of the curve25519 elliptic curve.
 ///
@@ -91,7 +90,6 @@ impl Field for Ed25519Base {
     // Sage: `g = GF(p).multiplicative_generator()`
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([2, 0, 0, 0]);
 
-    
     // Sage: `g_2 = g^((p - 1) / 4)`  → element of exact order 4 (√‑1)
     const POWER_OF_TWO_GENERATOR: Self = Self([
         0xC4EE1B274A0EA0B0,

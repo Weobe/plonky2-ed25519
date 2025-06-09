@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha512};
 
 use crate::curve::curve_types::{AffinePoint, Curve};
-use crate::curve::ed25519::mul_naive;
 use crate::curve::ed25519::Ed25519;
+use crate::curve::ed25519::mul_naive;
 use crate::field::ed25519_base::Ed25519Base;
 use crate::field::ed25519_scalar::Ed25519Scalar;
 
@@ -37,28 +37,31 @@ pub struct EDDSASignature<C: Curve> {
 ///  √‑1  mod p  (same value as `POWER_OF_TWO_GENERATOR`)
 const SQRT_M1: Ed25519Base = Ed25519Base::POWER_OF_TWO_GENERATOR;
 
-
 /// Decompress a 32‑byte Ed25519 point into your own `AffinePoint`.
 pub fn point_decompress(bytes: &[u8]) -> Option<AffinePoint<Ed25519>> {
-    if bytes.len() != 32 { return None; }
+    if bytes.len() != 32 {
+        return None;
+    }
 
     // --- 1. split into sign bit + y  -----------------------------
     let mut buf = [0u8; 32];
     buf.copy_from_slice(bytes);
     let sign = (buf[31] >> 7) & 1;
-    buf[31] &= 0x7F;                         // clear sign bit ⇒ y bytes
+    buf[31] &= 0x7F; // clear sign bit ⇒ y bytes
     let y_big = BigUint::from_bytes_le(&buf);
 
-    if &y_big >= &Ed25519Base::order() { return None; }
+    if &y_big >= &Ed25519Base::order() {
+        return None;
+    }
     let y = Ed25519Base::from_noncanonical_biguint(y_big);
 
     // y^2
     let y2 = y * y;
 
     // --- 2. compute x² = (y² – 1)/(d y² + 1) mod p --------------
-    let num   = y2 - Ed25519Base::ONE;
+    let num = y2 - Ed25519Base::ONE;
     let denom = Ed25519::D * y2 + Ed25519Base::ONE;
-    let x2    = num * denom.inverse();       // denom ≠ 0 because |y| < p
+    let x2 = num * denom.inverse(); // denom ≠ 0 because |y| < p
 
     // --- 3. take square root  -----------------------------------
     //  p ≡ 5 (mod 8) ⇒  x = x²^((p+3)/8)
@@ -66,8 +69,12 @@ pub fn point_decompress(bytes: &[u8]) -> Option<AffinePoint<Ed25519>> {
     let mut x = x2.exp_biguint(&e);
 
     // If x² != x2, multiply by √‑1
-    if x * x != x2 { x *= SQRT_M1; }
-    if x * x != x2 { return None; }          // not a square ⇒ invalid
+    if x * x != x2 {
+        x *= SQRT_M1;
+    }
+    if x * x != x2 {
+        return None;
+    } // not a square ⇒ invalid
 
     // --- 4. correct sign  ---------------------------------------
     let x_is_odd = x.to_canonical_biguint().bit(0) as u8; // bool → 0/1
@@ -109,7 +116,7 @@ pub fn verify_message(msg: &[u8], sigv: &[u8], pkv: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use crate::curve::eddsa::{
-        verify_message, SAMPLE_MSG1, SAMPLE_MSG2, SAMPLE_PK1, SAMPLE_SIG1, SAMPLE_SIG2,
+        SAMPLE_MSG1, SAMPLE_MSG2, SAMPLE_PK1, SAMPLE_SIG1, SAMPLE_SIG2, verify_message,
     };
 
     #[test]
@@ -131,13 +138,13 @@ mod tests {
 
 #[cfg(test)]
 mod dalek_roundtrip {
-    use super::verify_message;                // your verifier
-    use ed25519_dalek::{Keypair, Signer};     // Signer::sign(msg)
-    use rand_core::OsRng;                     // same rand_core 0.6 as dalek
+    use super::verify_message; // your verifier
+    use ed25519_dalek::{Keypair, Signer}; // Signer::sign(msg)
+    use rand_core::OsRng; // same rand_core 0.6 as dalek
 
     /// Convert a dalek signature (R||S) into raw 64‑byte array
     fn sig_bytes(sig: &ed25519_dalek::Signature) -> [u8; 64] {
-        sig.to_bytes()                        // already R‖S in dalek‑1.x
+        sig.to_bytes() // already R‖S in dalek‑1.x
     }
 
     #[test]

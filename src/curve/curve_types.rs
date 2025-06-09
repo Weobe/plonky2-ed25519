@@ -64,8 +64,7 @@ impl<C: Curve> AffinePoint<C> {
             return true;
         }
         // a·x² + y²  ?=  1 + d·x²y²
-        C::A * x.square() + y.square()
-            == C::BaseField::ONE + C::D * x.square() * y.square()
+        C::A * x.square() + y.square() == C::BaseField::ONE + C::D * x.square() * y.square()
     }
 
     pub fn to_projective(&self) -> ProjectivePoint<C> {

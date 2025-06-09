@@ -1,9 +1,9 @@
+use alloc::vec;
+use alloc::vec::Vec;
 use core::fmt::{self, Debug, Display, Formatter};
 use core::hash::{Hash, Hasher};
 use core::iter::{Product, Sum};
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use alloc::vec;
-use alloc::vec::Vec;
 use itertools::Itertools;
 use num::bigint::BigUint;
 use num::{Integer, One};
@@ -89,7 +89,7 @@ impl Field for Ed25519Scalar {
     const TWO_ADICITY: usize = 2;
     const CHARACTERISTIC_TWO_ADICITY: usize = Self::TWO_ADICITY;
 
-    // (l‑1) = 2² · q   with q odd → v₂ = 2 
+    // (l‑1) = 2² · q   with q odd → v₂ = 2
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([7, 0, 0, 0]);
 
     // √‑1  (order‑4)  = 2^((ℓ‑1)/4) mod ℓ
@@ -100,12 +100,12 @@ impl Field for Ed25519Scalar {
         0x094a7310e07981e7,
     ]);
 
-    const BITS: usize = 256; 
+    const BITS: usize = 256;
 
     fn order() -> BigUint {
         BigUint::from_slice(&[
-            0x5CF5D3ED, 0x5812631A, 0xA2F79CD6, 0x14DEF9DE,
-            0x00000000, 0x00000000, 0x00000000, 0x10000000,
+            0x5CF5D3ED, 0x5812631A, 0xA2F79CD6, 0x14DEF9DE, 0x00000000, 0x00000000, 0x00000000,
+            0x10000000,
         ])
     }
     fn characteristic() -> BigUint {
@@ -149,11 +149,7 @@ impl Field for Ed25519Scalar {
 
     fn from_noncanonical_i64(n: i64) -> Self {
         let f = Self::from_canonical_u64(n.unsigned_abs());
-        if n < 0 {
-            -f
-        } else {
-            f
-        }
+        if n < 0 { -f } else { f }
     }
 
     fn from_noncanonical_u64(n: u64) -> Self {

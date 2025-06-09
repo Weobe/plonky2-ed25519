@@ -1,14 +1,14 @@
 use std::marker::PhantomData;
 
+use crate::gadgets::biguint::BigUintTarget;
 use num::BigUint;
+use plonky2::field::extension::Extendable;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::hash::keccak::KeccakHash;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{GenericHashOut, Hasher};
-use crate::gadgets::biguint::BigUintTarget;
-use plonky2::field::extension::Extendable;
-use plonky2::field::types::Field;
 use plonky2_u32::gadgets::arithmetic_u32::{CircuitBuilderU32, U32Target};
 
 use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar};
@@ -187,12 +187,12 @@ mod tests {
     use std::ops::Neg;
 
     use anyhow::Result;
+    use plonky2::field::types::{Field, Sample};
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
-    use plonky2::field::types::{Field, Sample};
     use rand::Rng;
 
     use crate::curve::curve_types::{Curve, CurveScalar};
@@ -239,7 +239,6 @@ mod tests {
     #[test]
     #[ignore]
     fn test_curve_windowed_mul() -> Result<()> {
-
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
