@@ -112,10 +112,9 @@ fn shift64(y: usize) -> Vec<usize> {
 }
 
 /*
-a ^ b ^ c = a+b+c - 2*a*b - 2*a*c - 2*b*c + 4*a*b*c
-          = a*( 1 - 2*b - 2*c + 4*b*c ) + b + c - 2*b*c
-          = a*( 1 - 2*b -2*c + 4*m ) + b + c - 2*m
-where m = b*c
+a ^ b = sub(a,b)^2
+
+a ^ b ^ c = (a ^ b) ^ c
  */
 fn xor3<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
@@ -123,20 +122,10 @@ fn xor3<F: RichField + Extendable<D>, const D: usize>(
     b: BoolTarget,
     c: BoolTarget,
 ) -> BoolTarget {
-    let m = builder.mul(b.target, c.target);
-    let two_b = builder.add(b.target, b.target);
-    let two_c = builder.add(c.target, c.target);
-    let two_m = builder.add(m, m);
-    let four_m = builder.add(two_m, two_m);
-    let one = builder.one();
-    let one_sub_two_b = builder.sub(one, two_b);
-    let one_sub_two_b_sub_two_c = builder.sub(one_sub_two_b, two_c);
-    let one_sub_two_b_sub_two_c_add_four_m = builder.add(one_sub_two_b_sub_two_c, four_m);
-    let mut res = builder.mul(a.target, one_sub_two_b_sub_two_c_add_four_m);
-    res = builder.add(res, b.target);
-    res = builder.add(res, c.target);
-
-    BoolTarget::new_unsafe(builder.sub(res, two_m))
+    let u = builder.sub(a.target,b.target);
+    let d = builder.mul(u,u);
+    let v = builder.sub(d,c.target);
+    BoolTarget::new_unsafe(builder.mul(v, v))
 }
 
 //define Sigma0(x)    (ROTATE((x),28) ^ ROTATE((x),34) ^ ROTATE((x),39))
