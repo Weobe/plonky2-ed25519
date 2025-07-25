@@ -15,4 +15,4 @@ anyhow = "1.0.97"
 plonky2_util = "1.0.0"
 rand = "0.8"
 rand_core = "0.5"
-plonky2_u32 = { git = "https://github.com/ax0/plonky2-u32" }
+plonky2_u32 = { git = "https://github.com/ax0/plonky2-u32", rev="a18e790" }
